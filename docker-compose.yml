@@ -1,0 +1,56 @@
+version: '3.2'
+
+services:
+  nginx:
+    build: ./docker/nginx
+    platform: linux/amd64
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx/config:/etc/nginx/conf.d
+      - ./app:/var/www/code
+      - ./docker/nginx/logs:/var/log/nginx
+      # Re-use local composer cache via host-volume
+      - ~/.composer-docker/cache:/root/.composer/cache:delegated
+    networks:
+      - ergonovanet
+    depends_on:
+      - php-fpm
+      - mysql57
+
+  php-fpm:
+    build: ./docker/php-fpm
+    platform: linux/amd64
+    volumes:
+      - ./app:/var/www/code
+    networks:
+      - ergonovanet
+    environment:
+      XDEBUG_CONFIG: "remote_host=host.docker.internal remote_enable=1 remote_port=9008"
+      PHP_IDE_CONFIG: "serverName=soc-server"
+
+  mysql57:
+    image: mysql:5.7
+    platform: linux/amd64
+    ports:
+      - '3333:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_DATABASE: "test"
+      MYSQL_USER: "test"
+      MYSQL_PASSWORD: "test"
+    volumes:
+      - ./docker/mysql:/var/lib/mysql
+    restart: always
+    networks:
+      ergonovanet:
+        aliases:
+          - mysql.local
+
+networks:
+  ergonovanet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.33.0/28
